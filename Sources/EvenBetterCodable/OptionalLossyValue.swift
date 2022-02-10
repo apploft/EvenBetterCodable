@@ -1,5 +1,5 @@
 //
-//  OptionalCodableValue.swift
+//  OptionalLossyValue.swift
 //
 //
 //  Created by apploft GmbH on 02.02.22.
@@ -9,7 +9,7 @@
 import Foundation
 
 @propertyWrapper
-public struct OptionalCodableValue<T> {
+public struct OptionalLossyValue<T> {
 
     public var wrappedValue: T?
 
@@ -22,7 +22,7 @@ public struct OptionalCodableValue<T> {
     }
 }
 
-extension OptionalCodableValue: Decodable where T: Decodable  {
+extension OptionalLossyValue: Decodable where T: Decodable  {
     public init(from decoder: Decoder) {
         do {
             self.wrappedValue = try T.init(from: decoder)
@@ -34,7 +34,7 @@ extension OptionalCodableValue: Decodable where T: Decodable  {
     }
 }
 
-extension OptionalCodableValue: Encodable where T: Encodable  {
+extension OptionalLossyValue: Encodable where T: Encodable  {
     public func encode(to encoder: Encoder) throws {
         try wrappedValue?.encode(to: encoder)
     }
@@ -42,8 +42,8 @@ extension OptionalCodableValue: Encodable where T: Encodable  {
 
 /// Handles decoding a key that is not present. Instead of throwing an error, a nil value is produced.
 extension KeyedDecodingContainer {
-    public func decode<T: Decodable>(_ type: OptionalCodableValue<T>.Type, forKey key: Key) throws -> OptionalCodableValue<T> {
-        (try? decodeIfPresent(type, forKey: key)) ?? OptionalCodableValue<T>(wrappedValue: nil)
+    public func decode<T: Decodable>(_ type: OptionalLossyValue<T>.Type, forKey key: Key) throws -> OptionalLossyValue<T> {
+        (try? decodeIfPresent(type, forKey: key)) ?? OptionalLossyValue<T>(wrappedValue: nil)
     }
 
 }
