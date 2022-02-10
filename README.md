@@ -19,7 +19,7 @@ struct MyDTO: Codable {
     @OptionalCodableValue var anotherDTO: AnotherDTO?
     
     // Case 4:
-    @OptionalLossyArray var tags: [LoyaltyTagDto]
+    @OptionalLossyArray var examples: [ExampleDTO]
 
 }
 ```
