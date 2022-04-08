@@ -10,20 +10,30 @@ import Foundation
 
 @propertyWrapper
 public struct OptionalLossyValue<T> {
-
-    public var wrappedValue: T?
-
-    public init(wrappedValue: T) {
-        self.wrappedValue = wrappedValue
+    public enum NilValueEncodingStrategy {
+        case omitKey
+        case encodeKeyWithNullValue
     }
 
-    public init(wrappedValue: T?) {
+    public var wrappedValue: T?
+    public var nilValueEncodingStrategy: NilValueEncodingStrategy
+
+    public init(wrappedValue: T, nilValueEncodingStrategy: NilValueEncodingStrategy = .omitKey) {
         self.wrappedValue = wrappedValue
+        self.nilValueEncodingStrategy = nilValueEncodingStrategy
+    }
+
+    public init(wrappedValue: T?, nilValueEncodingStrategy: NilValueEncodingStrategy = .omitKey) {
+        self.wrappedValue = wrappedValue
+        self.nilValueEncodingStrategy = nilValueEncodingStrategy
     }
 }
 
 extension OptionalLossyValue: Decodable where T: Decodable  {
     public init(from decoder: Decoder) {
+        self.nilValueEncodingStrategy = .omitKey
+
+        
         do {
             self.wrappedValue = try T.init(from: decoder)
         } catch let error {
@@ -46,4 +56,21 @@ extension KeyedDecodingContainer {
         (try? decodeIfPresent(type, forKey: key)) ?? OptionalLossyValue<T>(wrappedValue: nil)
     }
 
+}
+
+/// Implements the selected NilValueEncodingStrategy
+extension KeyedEncodingContainer {
+    public mutating func encode<T: Encodable>(_ value: OptionalLossyValue<T>, forKey key: Key) throws {
+        if value.wrappedValue != nil {
+            try encodeIfPresent(value, forKey: key)
+        } else {
+            switch value.nilValueEncodingStrategy {
+            case .omitKey:
+                break
+
+            case .encodeKeyWithNullValue:
+                try encodeNil(forKey: key)
+            }
+        }
+    }
 }

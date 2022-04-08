@@ -34,6 +34,23 @@ Define all properties except arrays optional. Array must not be optional as they
 
 - Case 4: Arrays of complex types like custom DTOs are non-optional and wrapped as @OptionalLossyArray. Any element that cannot be parsed will be skipped. The resulting array can be empty.
 
+### Encoding
+
+By convention, nil values (or empty array) are not encoded to JSON and the property's corresponding key is omitted from the JSON output (read: as if the property was not there).
+You can change the behavior as follows:
+
+```Swift
+struct MyDTO: Codable {
+    @OptionalLosslessValue var willBeMissingInJSON: Bool? = nil // JSON: {}
+    @OptionalLosslessValue(nilValueEncodingStrategy: .encodeKeyWithNullValue) var willBeNullInJSON: Bool? = nil // JSON: {"willBeNullInJSON": null}
+    @OptionalLosslessArray var arrayWillBeMissingInJSON: [String] = [] // JSON: {}
+    @OptionalLosslessArray(emptyArrayEncodingStrategy: .encodeKeyWithNullValue) var arrayWillBeNullInJSON: [String] = [] // JSON: {"arrayWillBeNullInJSON": null}
+    @OptionalLosslessArray(emptyArrayEncodingStrategy: .encodeKeyWithEmptyArray) var arrayWillBeEmptyInJSON: [String] = [] // JSON: {"arrayWillBeEmptyInJSON": []}
+}
+```
+
+Mind that, due to current limitatings in the Swift language, you _have_ to provide a default value (= nil, = []) when specifying the _nilValueEncodingStrategy_ or _emptyArrayEncodingStrategy_ in the property wrapper.
+
 ## Attribution
 
 This project is licensed under MIT.

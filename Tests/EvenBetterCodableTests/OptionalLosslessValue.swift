@@ -19,6 +19,14 @@ class OptionalLosslessValueTests: XCTestCase {
         @OptionalLosslessValue var missingKey: Double?
     }
 
+    struct EncodingFixture: Codable {
+        @OptionalLosslessValue var aDefaultStrategyIsOmitKey: Bool?
+        @OptionalLosslessValue(nilValueEncodingStrategy: .omitKey) var bOmitKeyNoValue: Bool? = nil
+        @OptionalLosslessValue(nilValueEncodingStrategy: .encodeKeyWithNullValue) var cEncodeNullNoValue: Bool? = nil
+        @OptionalLosslessValue(nilValueEncodingStrategy: .omitKey) var dOmitKeyHasValue: Bool? = true
+        @OptionalLosslessValue(nilValueEncodingStrategy: .encodeKeyWithNullValue) var eEncodeKeyHasValue: Bool? = false
+    }
+
     func testDecodingMisalignedTypesFromJSONTraversesCorrectType() throws {
         let jsonData = #"{ "bool": "true", "string": 42, "int": "1", "double": "7.1", "nilValue": null }"#.data(using: .utf8)!
         let fixture = try JSONDecoder().decode(Fixture.self, from: jsonData)
@@ -58,5 +66,15 @@ class OptionalLosslessValueTests: XCTestCase {
         XCTAssertEqual(fixture.double, 7.1)
         XCTAssertEqual(fixture.nilValue, nil)
         XCTAssertEqual(fixture.missingKey, nil)
+    }
+
+    func testEncodingStrategies() throws {
+        let fixture = EncodingFixture()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys // for testability
+
+        let fixtureData = try encoder.encode(fixture)
+        let jsonString = String(data: fixtureData, encoding: .utf8)
+        XCTAssertEqual(jsonString, "{\"cEncodeNullNoValue\":null,\"dOmitKeyHasValue\":true,\"eEncodeKeyHasValue\":false}")
     }
 }
