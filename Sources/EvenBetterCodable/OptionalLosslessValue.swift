@@ -17,21 +17,31 @@ public typealias OptionalLosslessValue<T> = OptionalLosslessValueCodable<Lossles
 /// The preferred type order is provided by a generic `LosslessDecodingStrategy` that provides an ordered list of `losslessDecodableTypes`.@propertyWrapper
 @propertyWrapper
 public struct OptionalLosslessValueCodable<Strategy: LosslessDecodingStrategy>: Codable {
-    private let type: LosslessStringCodable.Type
-
-    public var wrappedValue: Strategy.Value?
-
-    public init(wrappedValue: Strategy.Value) {
-        self.wrappedValue = wrappedValue
-        self.type = Strategy.Value.self
+    public enum NilValueEncodingStrategy {
+        case omitKey
+        case encodeKeyWithNullValue
     }
 
-    public init(wrappedValue: Strategy.Value?) {
+    public var wrappedValue: Strategy.Value?
+    public var nilValueEncodingStrategy: NilValueEncodingStrategy
+
+    private let type: LosslessStringCodable.Type
+
+    public init(wrappedValue: Strategy.Value, nilValueEncodingStrategy: NilValueEncodingStrategy = .omitKey) {
         self.wrappedValue = wrappedValue
         self.type = Strategy.Value.self
+        self.nilValueEncodingStrategy = nilValueEncodingStrategy
+    }
+
+    public init(wrappedValue: Strategy.Value?, nilValueEncodingStrategy: NilValueEncodingStrategy = .omitKey) {
+        self.wrappedValue = wrappedValue
+        self.type = Strategy.Value.self
+        self.nilValueEncodingStrategy = nilValueEncodingStrategy
     }
 
     public init(from decoder: Decoder) {
+        self.nilValueEncodingStrategy = .omitKey
+
         do {
             self.wrappedValue = try Strategy.Value.init(from: decoder)
             self.type = Strategy.Value.self
@@ -51,19 +61,18 @@ public struct OptionalLosslessValueCodable<Strategy: LosslessDecodingStrategy>: 
     }
 
     public func encode(to encoder: Encoder) throws {
-        if let wrappedValue = wrappedValue {
-            let string = String(describing: wrappedValue)
-
-            guard let original = type.init(string) else {
-                let description = "Unable to encode '\(String(describing: wrappedValue))' back to source type '\(type)'"
-                throw EncodingError.invalidValue(string, .init(codingPath: [], debugDescription: description))
-            }
-
-            try original.encode(to: encoder)
-        } else {
-            var container = encoder.singleValueContainer()
-            try container.encodeNil()
+        guard let wrappedValue = wrappedValue else {
+            return
         }
+
+        let string = String(describing: wrappedValue)
+
+        guard let original = type.init(string) else {
+            let description = "Unable to encode '\(String(describing: wrappedValue))' back to source type '\(type)'"
+            throw EncodingError.invalidValue(string, .init(codingPath: [], debugDescription: description))
+        }
+
+        try original.encode(to: encoder)
     }
 }
 
@@ -71,5 +80,22 @@ public struct OptionalLosslessValueCodable<Strategy: LosslessDecodingStrategy>: 
 extension KeyedDecodingContainer {
     public func decode<T: Decodable>(_ type: OptionalLosslessValueCodable<LosslessDefaultStrategy<T>>.Type, forKey key: Key) throws -> OptionalLosslessValueCodable<LosslessDefaultStrategy<T>> {
         (try? decodeIfPresent(type, forKey: key)) ?? OptionalLosslessValueCodable<LosslessDefaultStrategy<T>>(wrappedValue: nil)
+    }
+}
+
+/// Implements the selected NilValueEncodingStrategy
+extension KeyedEncodingContainer {
+    public mutating func encode<T: Encodable>(_ value: OptionalLosslessValue<T>, forKey key: Key) throws {
+        if value.wrappedValue != nil {
+            try encodeIfPresent(value, forKey: key)
+        } else {
+            switch value.nilValueEncodingStrategy {
+            case .omitKey:
+                break
+
+            case .encodeKeyWithNullValue:
+                try encodeNil(forKey: key)
+            }
+        }
     }
 }
